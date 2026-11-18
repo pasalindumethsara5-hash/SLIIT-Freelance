@@ -1,0 +1,429 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Verified SLIIT campus student profile with isolated PII.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80
+        },
+        "sliitEmail": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 100,
+          "pattern": "^[a-zA-Z0-9._%+\\-]+@(my\\.)?sliit\\.lk$"
+        },
+        "sliitStudentId": {
+          "type": "string",
+          "maxLength": 12,
+          "pattern": "^(IT|BM|EN|HS|AR|GS)[0-9]{8}$"
+        },
+        "campus": {
+          "type": "string",
+          "enum": ["Malabe", "Metro", "Matara", "Kandy", "Kurunegala", "Jaffna"],
+          "maxLength": 24
+        },
+        "faculty": {
+          "type": "string",
+          "enum": ["Computing", "Engineering", "Business", "Humanities & Sciences", "Architecture"],
+          "maxLength": 32
+        },
+        "batch": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 24
+        },
+        "role": {
+          "type": "string",
+          "enum": ["student"],
+          "maxLength": 16
+        },
+        "verifiedCampus": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "displayName",
+        "sliitEmail",
+        "sliitStudentId",
+        "campus",
+        "faculty",
+        "batch",
+        "role",
+        "verifiedCampus",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Gig": {
+      "title": "Gig",
+      "description": "Paid (25% fee) or Free community freelance service listing published by a verified SLIIT student.",
+      "type": "object",
+      "properties": {
+        "sellerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "sellerName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80
+        },
+        "sellerSliitId": {
+          "type": "string",
+          "maxLength": 12,
+          "pattern": "^(IT|BM|EN|HS|AR|GS)[0-9]{8}$"
+        },
+        "sellerCampus": {
+          "type": "string",
+          "enum": ["Malabe", "Metro", "Matara", "Kandy", "Kurunegala", "Jaffna"],
+          "maxLength": 24
+        },
+        "sellerFaculty": {
+          "type": "string",
+          "enum": ["Computing", "Engineering", "Business", "Humanities & Sciences", "Architecture"],
+          "maxLength": 32
+        },
+        "title": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 120
+        },
+        "description": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 1500
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "Software & Web",
+            "UI/UX & Figma",
+            "Data & AI",
+            "Academic & LaTeX",
+            "Video & Motion",
+            "Business & Decks",
+            "Free Peer Help"
+          ],
+          "maxLength": 32
+        },
+        "priceLkr": {
+          "type": "number"
+        },
+        "platformFeeLkr": {
+          "type": "number"
+        },
+        "sellerPayoutLkr": {
+          "type": "number"
+        },
+        "isFree": {
+          "type": "boolean"
+        },
+        "deliveryDays": {
+          "type": "number"
+        },
+        "revisions": {
+          "type": "number"
+        },
+        "deliverables": {
+          "type": "array"
+        },
+        "imageUrl": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "rating": {
+          "type": "number"
+        },
+        "reviewCount": {
+          "type": "number"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "paused"],
+          "maxLength": 16
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "sellerId",
+        "sellerName",
+        "sellerSliitId",
+        "sellerCampus",
+        "sellerFaculty",
+        "title",
+        "description",
+        "category",
+        "priceLkr",
+        "platformFeeLkr",
+        "sellerPayoutLkr",
+        "isFree",
+        "deliveryDays",
+        "revisions",
+        "deliverables",
+        "imageUrl",
+        "rating",
+        "reviewCount",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Campus freelance order with immutable 25% platform commission (or 0 for free community services).",
+      "type": "object",
+      "properties": {
+        "gigId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "gigTitle": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 120
+        },
+        "category": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "buyerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "buyerName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80
+        },
+        "buyerCampus": {
+          "type": "string",
+          "maxLength": 24
+        },
+        "sellerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "sellerName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80
+        },
+        "sellerCampus": {
+          "type": "string",
+          "maxLength": 24
+        },
+        "grossAmountLkr": {
+          "type": "number"
+        },
+        "platformFeeRate": {
+          "type": "number"
+        },
+        "platformFeeLkr": {
+          "type": "number"
+        },
+        "sellerPayoutLkr": {
+          "type": "number"
+        },
+        "requirements": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "deliveryNote": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "status": {
+          "type": "string",
+          "enum": ["in_progress", "delivered", "completed", "cancelled"],
+          "maxLength": 20
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "gigId",
+        "gigTitle",
+        "category",
+        "buyerId",
+        "buyerName",
+        "buyerCampus",
+        "sellerId",
+        "sellerName",
+        "sellerCampus",
+        "grossAmountLkr",
+        "platformFeeRate",
+        "platformFeeLkr",
+        "sellerPayoutLkr",
+        "requirements",
+        "deliveryNote",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "KuppiSession": {
+      "title": "KuppiSession",
+      "description": "Peer-led Kuppi tutoring class or open SLIIT Study Together session.",
+      "type": "object",
+      "properties": {
+        "hostId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "hostName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80
+        },
+        "hostSliitId": {
+          "type": "string",
+          "maxLength": 12,
+          "pattern": "^(IT|BM|EN|HS|AR|GS)[0-9]{8}$"
+        },
+        "hostCampus": {
+          "type": "string",
+          "enum": ["Malabe", "Metro", "Matara", "Kandy", "Kurunegala", "Jaffna"],
+          "maxLength": 24
+        },
+        "sessionType": {
+          "type": "string",
+          "enum": ["kuppi", "study_group"],
+          "maxLength": 16
+        },
+        "moduleCode": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 16
+        },
+        "title": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 120
+        },
+        "topicSummary": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 800
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["On-Campus", "Online"],
+          "maxLength": 16
+        },
+        "locationOrLink": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 140
+        },
+        "scheduleLabel": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 80
+        },
+        "priceLkr": {
+          "type": "number"
+        },
+        "platformFeeLkr": {
+          "type": "number"
+        },
+        "sellerPayoutLkr": {
+          "type": "number"
+        },
+        "maxSeats": {
+          "type": "number"
+        },
+        "attendeeIds": {
+          "type": "array"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["open", "full", "completed"],
+          "maxLength": 16
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hostId",
+        "hostName",
+        "hostSliitId",
+        "hostCampus",
+        "sessionType",
+        "moduleCode",
+        "title",
+        "topicSummary",
+        "mode",
+        "locationOrLink",
+        "scheduleLabel",
+        "priceLkr",
+        "platformFeeLkr",
+        "sellerPayoutLkr",
+        "maxSeats",
+        "attendeeIds",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private SLIIT campus verified student accounts."
+    },
+    "/gigs/{gigId}": {
+      "schema": { "$ref": "#/entities/Gig" },
+      "description": "Published student freelance and free community service listings."
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Escrowed campus orders with 25% platform fee split (or 0 for free services)."
+    },
+    "/kuppiSessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/KuppiSession" },
+      "description": "SLIIT Kuppi classes and collaborative Study Together meetups."
+    }
+  }
+}

@@ -1,0 +1,408 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net: Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Primitive Helpers ---
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedEmail() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isBootstrappedAdmin() {
+      return isVerifiedEmail() && request.auth.token.email == 'kalanamahisuru@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() || (
+        isVerifiedEmail() && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isCampusName(val) {
+      return val is string && val.size() <= 24 && val in ['Malabe', 'Metro', 'Matara', 'Kandy', 'Kurunegala', 'Jaffna'];
+    }
+
+    function isFacultyName(val) {
+      return val is string && val.size() <= 32 && val in ['Computing', 'Engineering', 'Business', 'Humanities & Sciences', 'Architecture'];
+    }
+
+    function isGigCategory(val) {
+      return val is string && val.size() <= 32 && val in [
+        'Software & Web',
+        'UI/UX & Figma',
+        'Data & AI',
+        'Academic & LaTeX',
+        'Video & Motion',
+        'Business & Decks',
+        'Free Peer Help'
+      ];
+    }
+
+    function isValidCommissionAmounts(gross, fee, payout) {
+      return (gross == 0 && fee == 0 && payout == 0) || (
+        gross >= 500 && gross <= 500000 &&
+        fee >= 0 && payout >= 0 &&
+        (fee + payout) == gross &&
+        fee == math.round(gross * 0.25)
+      );
+    }
+
+    function isVerifiedCampusMember() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.verifiedCampus == true;
+    }
+
+    // --- Validation Blueprints ---
+    function isValidUserProfile(data) {
+      return data.keys().hasAll([
+          'uid', 'displayName', 'sliitEmail', 'sliitStudentId',
+          'campus', 'faculty', 'batch', 'role', 'verifiedCampus',
+          'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'uid', 'displayName', 'sliitEmail', 'sliitStudentId',
+          'campus', 'faculty', 'batch', 'role', 'verifiedCampus',
+          'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.uid) &&
+        data.uid == request.auth.uid &&
+        data.displayName is string && data.displayName.size() >= 2 && data.displayName.size() <= 80 &&
+        data.sliitEmail is string && data.sliitEmail.size() <= 100 &&
+        data.sliitEmail.matches('^[a-zA-Z0-9._%+\\-]+@(my\\.)?sliit\\.lk$') &&
+        data.sliitStudentId is string && data.sliitStudentId.size() <= 12 &&
+        data.sliitStudentId.matches('^(IT|BM|EN|HS|AR|GS)[0-9]{8}$') &&
+        isCampusName(data.campus) &&
+        isFacultyName(data.faculty) &&
+        data.batch is string && data.batch.size() >= 2 && data.batch.size() <= 24 &&
+        data.role is string && data.role == 'student' &&
+        data.verifiedCampus is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidGig(data) {
+      return data.keys().hasAll([
+          'sellerId', 'sellerName', 'sellerSliitId', 'sellerCampus', 'sellerFaculty',
+          'title', 'description', 'category', 'priceLkr', 'platformFeeLkr',
+          'sellerPayoutLkr', 'isFree', 'deliveryDays', 'revisions', 'deliverables',
+          'imageUrl', 'rating', 'reviewCount', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'sellerId', 'sellerName', 'sellerSliitId', 'sellerCampus', 'sellerFaculty',
+          'title', 'description', 'category', 'priceLkr', 'platformFeeLkr',
+          'sellerPayoutLkr', 'isFree', 'deliveryDays', 'revisions', 'deliverables',
+          'imageUrl', 'rating', 'reviewCount', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.sellerId) &&
+        data.sellerName is string && data.sellerName.size() >= 2 && data.sellerName.size() <= 80 &&
+        data.sellerSliitId is string && data.sellerSliitId.size() <= 12 &&
+        data.sellerSliitId.matches('^(IT|BM|EN|HS|AR|GS)[0-9]{8}$') &&
+        isCampusName(data.sellerCampus) &&
+        isFacultyName(data.sellerFaculty) &&
+        data.title is string && data.title.size() >= 8 && data.title.size() <= 120 &&
+        data.description is string && data.description.size() >= 20 && data.description.size() <= 1500 &&
+        isGigCategory(data.category) &&
+        data.priceLkr is number &&
+        data.platformFeeLkr is number &&
+        data.sellerPayoutLkr is number &&
+        data.isFree is bool &&
+        (data.isFree == (data.priceLkr == 0)) &&
+        isValidCommissionAmounts(data.priceLkr, data.platformFeeLkr, data.sellerPayoutLkr) &&
+        data.deliveryDays is number && data.deliveryDays >= 1 && data.deliveryDays <= 30 &&
+        data.revisions is number && data.revisions >= 0 && data.revisions <= 10 &&
+        data.deliverables is list && data.deliverables.size() >= 1 && data.deliverables.size() <= 8 &&
+        data.deliverables[0] is string && data.deliverables[0].size() <= 100 &&
+        data.imageUrl is string && data.imageUrl.size() >= 1 && data.imageUrl.size() <= 300 &&
+        data.rating is number && data.rating >= 0 && data.rating <= 5 &&
+        data.reviewCount is number && data.reviewCount >= 0 &&
+        data.status is string && data.status in ['active', 'paused'] &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll([
+          'gigId', 'gigTitle', 'category', 'buyerId', 'buyerName', 'buyerCampus',
+          'sellerId', 'sellerName', 'sellerCampus', 'grossAmountLkr',
+          'platformFeeRate', 'platformFeeLkr', 'sellerPayoutLkr',
+          'requirements', 'deliveryNote', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'gigId', 'gigTitle', 'category', 'buyerId', 'buyerName', 'buyerCampus',
+          'sellerId', 'sellerName', 'sellerCampus', 'grossAmountLkr',
+          'platformFeeRate', 'platformFeeLkr', 'sellerPayoutLkr',
+          'requirements', 'deliveryNote', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.gigId) &&
+        data.gigTitle is string && data.gigTitle.size() >= 4 && data.gigTitle.size() <= 120 &&
+        isGigCategory(data.category) &&
+        isValidId(data.buyerId) &&
+        data.buyerName is string && data.buyerName.size() >= 2 && data.buyerName.size() <= 80 &&
+        isCampusName(data.buyerCampus) &&
+        isValidId(data.sellerId) &&
+        data.sellerName is string && data.sellerName.size() >= 2 && data.sellerName.size() <= 80 &&
+        isCampusName(data.sellerCampus) &&
+        data.grossAmountLkr is number &&
+        data.platformFeeRate is number &&
+        ((data.grossAmountLkr == 0 && data.platformFeeRate == 0) || data.platformFeeRate == 0.25) &&
+        data.platformFeeLkr is number &&
+        data.sellerPayoutLkr is number &&
+        isValidCommissionAmounts(data.grossAmountLkr, data.platformFeeLkr, data.sellerPayoutLkr) &&
+        data.requirements is string && data.requirements.size() <= 1000 &&
+        data.deliveryNote is string && data.deliveryNote.size() <= 1000 &&
+        data.status is string && data.status in ['in_progress', 'delivered', 'completed', 'cancelled'] &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidKuppiSession(data) {
+      return data.keys().hasAll([
+          'hostId', 'hostName', 'hostSliitId', 'hostCampus', 'sessionType',
+          'moduleCode', 'title', 'topicSummary', 'mode', 'locationOrLink',
+          'scheduleLabel', 'priceLkr', 'platformFeeLkr', 'sellerPayoutLkr',
+          'maxSeats', 'attendeeIds', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'hostId', 'hostName', 'hostSliitId', 'hostCampus', 'sessionType',
+          'moduleCode', 'title', 'topicSummary', 'mode', 'locationOrLink',
+          'scheduleLabel', 'priceLkr', 'platformFeeLkr', 'sellerPayoutLkr',
+          'maxSeats', 'attendeeIds', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.hostId) &&
+        data.hostName is string && data.hostName.size() >= 2 && data.hostName.size() <= 80 &&
+        data.hostSliitId is string && data.hostSliitId.size() <= 12 &&
+        data.hostSliitId.matches('^(IT|BM|EN|HS|AR|GS)[0-9]{8}$') &&
+        isCampusName(data.hostCampus) &&
+        data.sessionType is string && data.sessionType in ['kuppi', 'study_group'] &&
+        data.moduleCode is string && data.moduleCode.size() >= 3 && data.moduleCode.size() <= 16 &&
+        data.title is string && data.title.size() >= 6 && data.title.size() <= 120 &&
+        data.topicSummary is string && data.topicSummary.size() >= 10 && data.topicSummary.size() <= 800 &&
+        data.mode is string && data.mode in ['On-Campus', 'Online'] &&
+        data.locationOrLink is string && data.locationOrLink.size() >= 3 && data.locationOrLink.size() <= 140 &&
+        data.scheduleLabel is string && data.scheduleLabel.size() >= 4 && data.scheduleLabel.size() <= 80 &&
+        data.priceLkr is number &&
+        data.platformFeeLkr is number &&
+        data.sellerPayoutLkr is number &&
+        isValidCommissionAmounts(data.priceLkr, data.platformFeeLkr, data.sellerPayoutLkr) &&
+        data.maxSeats is number && data.maxSeats >= 2 && data.maxSeats <= 100 &&
+        data.attendeeIds is list && data.attendeeIds.size() <= 100 &&
+        (data.attendeeIds.size() == 0 || (data.attendeeIds[0] is string && data.attendeeIds[0].size() <= 128)) &&
+        data.status is string && data.status in ['open', 'full', 'completed'] &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    // --- Collection Rules ---
+    match /admins/{adminId} {
+      allow get: if isValidId(adminId) && (isOwner(adminId) || isBootstrappedAdmin());
+      allow list, create, update, delete: if false;
+    }
+
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isBootstrappedAdmin();
+      allow create: if isVerifiedEmail() &&
+        isValidId(userId) &&
+        isOwner(userId) &&
+        isValidUserProfile(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isVerifiedEmail() &&
+        isValidId(userId) &&
+        isValidUserProfile(incoming()) && (
+          isAdmin() || (
+            isOwner(userId) &&
+            incoming().uid == existing().uid &&
+            incoming().role == existing().role &&
+            incoming().createdAt == existing().createdAt &&
+            incoming().updatedAt == request.time &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'displayName', 'sliitEmail', 'sliitStudentId', 'campus',
+              'faculty', 'batch', 'verifiedCampus', 'updatedAt'
+            ])
+          )
+        );
+      allow delete: if isAdmin() && isValidId(userId);
+    }
+
+    match /gigs/{gigId} {
+      allow get: if isValidId(gigId) && (
+        existing().status == 'active' ||
+        (isSignedIn() && existing().sellerId == request.auth.uid) ||
+        isAdmin()
+      );
+      allow list: if resource.data.status == 'active' ||
+        (isSignedIn() && resource.data.sellerId == request.auth.uid) ||
+        isBootstrappedAdmin();
+      allow create: if isVerifiedEmail() &&
+        isValidId(gigId) &&
+        isValidGig(incoming()) &&
+        incoming().sellerId == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isVerifiedCampusMember();
+      allow update: if isVerifiedEmail() &&
+        isValidId(gigId) &&
+        isValidGig(incoming()) && (
+          isAdmin() || (
+            existing().sellerId == request.auth.uid &&
+            incoming().sellerId == existing().sellerId &&
+            incoming().createdAt == existing().createdAt &&
+            incoming().updatedAt == request.time &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'title', 'description', 'category', 'priceLkr', 'platformFeeLkr',
+              'sellerPayoutLkr', 'isFree', 'deliveryDays', 'revisions', 'deliverables',
+              'imageUrl', 'status', 'updatedAt'
+            ])
+          )
+        );
+      allow delete: if isValidId(gigId) && (
+        isAdmin() || (isVerifiedEmail() && existing().sellerId == request.auth.uid)
+      );
+    }
+
+    match /orders/{orderId} {
+      allow get: if isValidId(orderId) && isSignedIn() && (
+        existing().buyerId == request.auth.uid ||
+        existing().sellerId == request.auth.uid ||
+        isAdmin()
+      );
+      allow list: if isSignedIn() && (
+        resource.data.buyerId == request.auth.uid ||
+        resource.data.sellerId == request.auth.uid ||
+        isBootstrappedAdmin()
+      );
+      allow create: if isVerifiedEmail() &&
+        isValidId(orderId) &&
+        isValidOrder(incoming()) &&
+        incoming().buyerId == request.auth.uid &&
+        incoming().buyerId != incoming().sellerId &&
+        incoming().status == 'in_progress' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/gigs/$(incoming().gigId)) &&
+        isVerifiedCampusMember();
+      allow update: if isVerifiedEmail() &&
+        isValidId(orderId) &&
+        isValidOrder(incoming()) && (
+          isAdmin() || (
+            existing().status != 'completed' &&
+            existing().status != 'cancelled' &&
+            incoming().gigId == existing().gigId &&
+            incoming().buyerId == existing().buyerId &&
+            incoming().sellerId == existing().sellerId &&
+            incoming().grossAmountLkr == existing().grossAmountLkr &&
+            incoming().platformFeeRate == existing().platformFeeRate &&
+            incoming().platformFeeLkr == existing().platformFeeLkr &&
+            incoming().sellerPayoutLkr == existing().sellerPayoutLkr &&
+            incoming().createdAt == existing().createdAt &&
+            incoming().updatedAt == request.time && (
+              (
+                existing().sellerId == request.auth.uid &&
+                existing().status == 'in_progress' &&
+                incoming().status == 'delivered' &&
+                incoming().diff(existing()).affectedKeys().hasOnly(['status', 'deliveryNote', 'updatedAt'])
+              ) ||
+              (
+                existing().buyerId == request.auth.uid &&
+                existing().status == 'delivered' &&
+                incoming().status == 'completed' &&
+                incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+              ) ||
+              (
+                existing().buyerId == request.auth.uid &&
+                existing().status == 'in_progress' &&
+                incoming().status == 'cancelled' &&
+                incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+              )
+            )
+          )
+        );
+      allow delete: if isAdmin() && isValidId(orderId);
+    }
+
+    match /kuppiSessions/{sessionId} {
+      allow get: if isValidId(sessionId) && (
+        existing().status in ['open', 'full'] ||
+        (isSignedIn() && existing().hostId == request.auth.uid) ||
+        isAdmin()
+      );
+      allow list: if resource.data.status in ['open', 'full'] ||
+        (isSignedIn() && resource.data.hostId == request.auth.uid) ||
+        isBootstrappedAdmin();
+      allow create: if isVerifiedEmail() &&
+        isValidId(sessionId) &&
+        isValidKuppiSession(incoming()) &&
+        incoming().hostId == request.auth.uid &&
+        incoming().status == 'open' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isVerifiedCampusMember();
+      allow update: if isVerifiedEmail() &&
+        isValidId(sessionId) &&
+        isValidKuppiSession(incoming()) && (
+          isAdmin() || (
+            existing().status != 'completed' &&
+            incoming().hostId == existing().hostId &&
+            incoming().createdAt == existing().createdAt &&
+            incoming().updatedAt == request.time && (
+              // Host updates session details or marks completed
+              (
+                existing().hostId == request.auth.uid &&
+                incoming().diff(existing()).affectedKeys().hasOnly([
+                  'title', 'topicSummary', 'mode', 'locationOrLink',
+                  'scheduleLabel', 'status', 'updatedAt'
+                ])
+              ) ||
+              // Verified SLIIT peer joins or leaves session (self-only mutation)
+              (
+                isVerifiedCampusMember() &&
+                incoming().diff(existing()).affectedKeys().hasOnly(['attendeeIds', 'status', 'updatedAt']) &&
+                incoming().attendeeIds.size() <= existing().maxSeats && (
+                  (
+                    !(request.auth.uid in existing().attendeeIds) &&
+                    (request.auth.uid in incoming().attendeeIds) &&
+                    incoming().attendeeIds.size() == existing().attendeeIds.size() + 1 &&
+                    incoming().attendeeIds.hasAll(existing().attendeeIds)
+                  ) ||
+                  (
+                    (request.auth.uid in existing().attendeeIds) &&
+                    !(request.auth.uid in incoming().attendeeIds) &&
+                    incoming().attendeeIds.size() + 1 == existing().attendeeIds.size() &&
+                    existing().attendeeIds.hasAll(incoming().attendeeIds)
+                  )
+                )
+              )
+            )
+          )
+        );
+      allow delete: if isValidId(sessionId) && (
+        isAdmin() || (isVerifiedEmail() && existing().hostId == request.auth.uid)
+      );
+    }
+  }
+}

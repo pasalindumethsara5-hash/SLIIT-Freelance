@@ -1,0 +1,8 @@
+{
+  "name": "SLIIT Freelance Hub",
+  "description": "SLIIT campus-exclusive freelance marketplace for verified SLIIT students with an automated 25% platform commission ledger.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
