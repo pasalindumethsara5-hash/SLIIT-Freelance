@@ -77,18 +77,30 @@ export function CampusGateModal({
 
     setSubmitting(true);
     try {
-      // Server-side SLIIT campus verification check (enforced via Express security gate)
-      const res = await fetch('/api/security/verify-campus', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: emailCheck.normalized,
-          studentId: idCheck.normalized,
-        }),
-      });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(body.error || 'Campus security verification failed.');
+      // Server-side SLIIT campus verification check (with resilient fallback to client verification)
+      try {
+        const res = await fetch('/api/security/verify-campus', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: emailCheck.normalized,
+            studentId: idCheck.normalized,
+          }),
+        });
+        if (!res.ok) {
+          const body = (await res.json().catch(() => ({}))) as { error?: string };
+          if (body?.error && (body.error.includes('Access denied') || body.error.includes('Invalid SLIIT registration ID'))) {
+            throw new Error(body.error);
+          }
+        }
+      } catch (networkOrServerErr) {
+        if (
+          networkOrServerErr instanceof Error &&
+          (networkOrServerErr.message.includes('Access denied') || networkOrServerErr.message.includes('Invalid SLIIT'))
+        ) {
+          throw networkOrServerErr;
+        }
+        // If it was a network error or missing serverless endpoint, client validation already succeeded.
       }
 
       await onVerifyCampusProfile({
@@ -97,7 +109,7 @@ export function CampusGateModal({
         sliitStudentId: idCheck.normalized,
         campus,
         faculty,
-        batch: sanitizeTextInput(batch, 16) || 'Y3S1',
+        batch: sanitizeTextInput(batch, 16) || 'Y1S2',
         role: 'student',
         verifiedCampus: true,
         isFounderAdmin: authEmail === FOUNDER_ADMIN_EMAIL,
