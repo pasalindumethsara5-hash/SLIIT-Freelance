@@ -7,3 +7,10 @@ coverage/
 .env*
 !.env.example
 .vercel/
+
+# Private evaluation and presentation documents
+PROJECT_DOCUMENTATION*
+docs/
+*.docx
+*.pdf
+.private_docs/
