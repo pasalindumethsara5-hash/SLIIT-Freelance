@@ -93,6 +93,9 @@ export interface Order {
   requirements: string;
   deliveryNote: string;
   status: OrderStatus;
+  rating?: number;
+  feedback?: string;
+  reviewedAtMs?: number;
   createdAtMs: number;
   updatedAtMs: number;
 }

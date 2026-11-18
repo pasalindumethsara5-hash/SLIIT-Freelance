@@ -397,7 +397,8 @@ export async function createOrderDoc(order: Omit<Order, 'id' | 'createdAtMs' | '
 export async function updateOrderStatusDoc(
   orderId: string,
   nextStatus: OrderStatus,
-  deliveryNote?: string
+  deliveryNote?: string,
+  reviewData?: { rating: number; feedback: string }
 ): Promise<void> {
   const path = `orders/${orderId}`;
   try {
@@ -407,6 +408,11 @@ export async function updateOrderStatusDoc(
     };
     if (deliveryNote !== undefined) {
       payload.deliveryNote = deliveryNote;
+    }
+    if (reviewData) {
+      payload.rating = reviewData.rating;
+      payload.feedback = reviewData.feedback;
+      payload.reviewedAt = serverTimestamp();
     }
     await updateDoc(doc(db, 'orders', orderId), payload);
   } catch (error) {

@@ -382,10 +382,15 @@ export default function App() {
     );
   };
 
-  const handleUpdateOrderStatus = async (orderId: string, nextStatus: OrderStatus, deliveryNote?: string) => {
+  const handleUpdateOrderStatus = async (
+    orderId: string,
+    nextStatus: OrderStatus,
+    deliveryNote?: string,
+    reviewData?: { rating: number; feedback: string }
+  ) => {
     const isCloud = cloudOrders.some((o) => o.id === orderId);
     if (firebaseUser && isCloud) {
-      await updateOrderStatusDoc(orderId, nextStatus, deliveryNote);
+      await updateOrderStatusDoc(orderId, nextStatus, deliveryNote, reviewData);
     } else {
       setSandboxOrders((prev) =>
         prev.map((o) =>
@@ -394,13 +399,38 @@ export default function App() {
                 ...o,
                 status: nextStatus,
                 deliveryNote: deliveryNote !== undefined ? deliveryNote : o.deliveryNote,
+                rating: reviewData ? reviewData.rating : o.rating,
+                feedback: reviewData ? reviewData.feedback : o.feedback,
+                reviewedAtMs: reviewData ? Date.now() : o.reviewedAtMs,
                 updatedAtMs: Date.now(),
               }
             : o
         )
       );
+
+      // If review is submitted, update the corresponding gig rating & reviewCount
+      if (reviewData) {
+        const targetOrder = sandboxOrders.find((o) => o.id === orderId);
+        if (targetOrder?.gigId) {
+          setSandboxGigs((prevGigs) =>
+            prevGigs.map((g) => {
+              if (g.id === targetOrder.gigId) {
+                const currentCount = g.reviewCount || 0;
+                const newCount = currentCount + 1;
+                const newRating = Number(((g.rating * currentCount + reviewData.rating) / newCount).toFixed(1));
+                return { ...g, rating: newRating, reviewCount: newCount };
+              }
+              return g;
+            })
+          );
+        }
+      }
     }
-    showToast(`Order ${orderId} updated to ${nextStatus.replace('_', ' ')}.`);
+    showToast(
+      reviewData
+        ? `Order ${orderId} completed with ★ ${reviewData.rating} review!`
+        : `Order ${orderId} updated to ${nextStatus.replace('_', ' ')}.`
+    );
   };
 
   const handleCreateKuppi = async (sessionInput: Omit<KuppiSession, 'id' | 'createdAtMs'>) => {

@@ -1,4 +1,4 @@
-import { ArrowUpRight, Award, Calendar, X } from 'lucide-react';
+import { ArrowUpRight, Award, Calendar, Star, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import type { Gig, KuppiSession, Order, StudentProfileStats } from '../types/marketplace';
 import { computeStudentProfileStats, formatLkr, type StudentIdentitySeed } from '../utils/campusRules';
@@ -36,6 +36,7 @@ export function StudentProfileModal({
     ? kuppiSessions.filter((s) => s.hostId === stats.uid || s.attendeeIds.includes(stats.uid))
     : [];
   const lockedBadges = stats ? stats.badges.filter((b) => !b.earned) : [];
+  const sellerReviews = stats ? orders.filter((o) => o.sellerId === stats.uid && o.rating) : [];
 
   return (
     <AnimatePresence>
@@ -208,6 +209,43 @@ export function StudentProfileModal({
                     <span className="font-mono-num text-slate-500 whitespace-nowrap shrink-0">
                       {session.hostId === stats.uid ? 'Host' : 'Attending'}
                     </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Verified Student Reviews & Ratings */}
+          {sellerReviews.length > 0 && (
+            <section className="pt-4 border-t border-slate-900/10 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-display text-sm font-semibold text-slate-800">
+                  Verified Student Reviews ({sellerReviews.length})
+                </h3>
+                <span className="font-mono-num text-xs font-bold text-amber-700">
+                  ★ {stats.avgSellerRating > 0 ? stats.avgSellerRating.toFixed(1) : '5.0'} Overall
+                </span>
+              </div>
+              <div className="space-y-2.5">
+                {sellerReviews.map((r) => (
+                  <div key={r.id} className="p-3 bg-amber-50/60 border border-amber-200/70 rounded-2xl space-y-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex text-amber-500">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Star
+                            key={s}
+                            className={`w-3.5 h-3.5 ${
+                              s <= (r.rating || 5) ? 'fill-amber-400 text-amber-500' : 'text-slate-300'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-mono-num">{r.id}</span>
+                    </div>
+                    {r.feedback && <p className="text-xs text-slate-700 italic leading-relaxed">"{r.feedback}"</p>}
+                    <div className="text-[11px] text-slate-500">
+                      Feedback by <span className="font-semibold text-slate-800">{r.buyerName}</span> · {r.gigTitle}
+                    </div>
                   </div>
                 ))}
               </div>

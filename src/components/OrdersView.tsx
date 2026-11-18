@@ -1,5 +1,5 @@
-import { CheckCircle2, Clock, PackageCheck, XCircle } from 'lucide-react';
-import { motion } from 'motion/react';
+import { CheckCircle2, Clock, MessageSquarePlus, PackageCheck, Sparkles, Star, X, XCircle } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
 import type { Order, OrderStatus, UserProfile } from '../types/marketplace';
 import { formatLkr, sanitizeTextInput, type StudentIdentitySeed } from '../utils/campusRules';
@@ -7,10 +7,23 @@ import { formatLkr, sanitizeTextInput, type StudentIdentitySeed } from '../utils
 interface OrdersViewProps {
   orders: Order[];
   currentUser: UserProfile | null;
-  onUpdateStatus: (orderId: string, nextStatus: OrderStatus, deliveryNote?: string) => Promise<void>;
+  onUpdateStatus: (
+    orderId: string,
+    nextStatus: OrderStatus,
+    deliveryNote?: string,
+    reviewData?: { rating: number; feedback: string }
+  ) => Promise<void>;
   onOpenMarketplace: () => void;
   onOpenProfile: (identity: StudentIdentitySeed) => void;
 }
+
+const QUICK_TAGS = [
+  '🚀 Delivered on time',
+  '💻 Clean & well-documented code',
+  '✨ Exceeded expectations',
+  '💬 Great campus communication',
+  '💯 Highly recommended peer seller',
+];
 
 function StatusBadge({ status }: { status: OrderStatus }) {
   switch (status) {
@@ -56,6 +69,13 @@ export function OrdersView({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [deliveryNotes, setDeliveryNotes] = useState<Record<string, string>>({});
 
+  // Review Modal State
+  const [reviewOrder, setReviewOrder] = useState<Order | null>(null);
+  const [rating, setRating] = useState<number>(5);
+  const [hoverRating, setHoverRating] = useState<number>(0);
+  const [feedback, setFeedback] = useState<string>('');
+  const [submittingReview, setSubmittingReview] = useState(false);
+
   const visibleOrders = orders.filter((o) => {
     if (!currentUser || scope === 'all') return true;
     if (scope === 'buying') return o.buyerId === currentUser.uid;
@@ -76,17 +96,42 @@ export function OrdersView({
     }
   };
 
+  const handleOpenReviewModal = (order: Order) => {
+    setReviewOrder(order);
+    setRating(order.rating ?? 5);
+    setFeedback(order.feedback ?? '');
+  };
+
+  const handleSubmitReview = async () => {
+    if (!reviewOrder) return;
+    setSubmittingReview(true);
+    try {
+      const cleanFeedback = sanitizeTextInput(feedback, 600) || 'Excellent work and smooth campus delivery!';
+      await onUpdateStatus(reviewOrder.id, 'completed', undefined, {
+        rating,
+        feedback: cleanFeedback,
+      });
+      setReviewOrder(null);
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  const handleQuickTagClick = (tag: string) => {
+    setFeedback((prev) => (prev ? `${prev} · ${tag}` : tag));
+  };
+
   return (
     <div className="space-y-6">
+      {/* Header Panel */}
       <div className="glass-panel rounded-3xl p-6 sm:p-7 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold text-amber-700 tracking-wide">Escrowed Campus Orders</p>
+          <p className="text-xs font-semibold text-amber-700 tracking-wide">Escrowed Campus Orders &amp; Reviews</p>
           <h2 className="mt-1 font-display text-2xl sm:text-3xl font-bold text-[#0B1F3A]">
-            Order Lifecycle &amp; Payouts
+            Order Lifecycle, Ratings &amp; Payouts
           </h2>
           <p className="mt-1.5 text-sm text-slate-600">
-            Track deliverables, confirm handoff, and release the 75% seller payout / 25% platform commission split (or
-            LKR 0 free peer help).
+            Track deliverables, leave verified ratings &amp; feedback, and release the 75% seller payout / 25% platform split.
           </p>
         </div>
 
@@ -137,6 +182,7 @@ export function OrdersView({
             const canDeliver = order.status === 'in_progress' && (isSeller || currentUser?.isFounderAdmin);
             const canComplete = order.status === 'delivered' && (isBuyer || currentUser?.isFounderAdmin);
             const canCancel = order.status === 'in_progress' && (isBuyer || currentUser?.isFounderAdmin);
+            const canReview = order.status === 'completed' && (isBuyer || currentUser?.isFounderAdmin);
 
             return (
               <motion.article
@@ -217,6 +263,40 @@ export function OrdersView({
                       {order.deliveryNote}
                     </p>
                   )}
+
+                  {/* Verified Review Display */}
+                  {order.rating && (
+                    <div className="p-3.5 bg-amber-50/70 border border-amber-200/80 rounded-2xl flex flex-col gap-1.5 shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="flex text-amber-500">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <Star
+                                key={star}
+                                className={`w-3.5 h-3.5 ${
+                                  star <= (order.rating || 5) ? 'fill-amber-400 text-amber-500' : 'text-slate-300'
+                                }`}
+                              />
+                            ))}
+                          </div>
+                          <span className="font-mono-num text-xs font-bold text-amber-900">
+                            ★ {(order.rating || 5).toFixed(1)} / 5.0
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md">
+                          Verified Campus Review
+                        </span>
+                      </div>
+                      {order.feedback && (
+                        <p className="text-xs text-slate-700 italic leading-relaxed">
+                          "{order.feedback}"
+                        </p>
+                      )}
+                      <div className="text-[11px] text-slate-500">
+                        Feedback by <span className="font-semibold text-slate-800">{order.buyerName}</span> ({order.buyerCampus})
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Right Financial Breakdown & Actions */}
@@ -265,10 +345,21 @@ export function OrdersView({
                     <button
                       type="button"
                       disabled={busyId === order.id}
-                      onClick={() => void handleAction(order.id, 'completed')}
-                      className="w-full px-3.5 py-2 text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-800 rounded-xl transition-colors cursor-pointer"
+                      onClick={() => handleOpenReviewModal(order)}
+                      className="w-full px-3.5 py-2.5 text-xs font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 rounded-xl transition-all cursor-pointer shadow-sm hover:scale-[1.01]"
                     >
-                      {isFree ? 'Confirm Free Help Completed' : 'Approve Delivery & Release 75%/25%'}
+                      {isFree ? 'Approve & Leave Feedback' : 'Approve Delivery & Rate Seller'}
+                    </button>
+                  )}
+
+                  {canReview && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenReviewModal(order)}
+                      className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-xl transition-colors cursor-pointer"
+                    >
+                      <MessageSquarePlus className="w-3.5 h-3.5 text-amber-600" />
+                      {order.rating ? 'Update Review & Rating' : 'Leave Review & Rating'}
                     </button>
                   )}
 
@@ -288,6 +379,133 @@ export function OrdersView({
           })}
         </div>
       )}
+
+      {/* Review & Rating Modal */}
+      <AnimatePresence>
+        {reviewOrder && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="review-modal-title"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 12 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              className="glass-panel bg-white/95 rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-white"
+            >
+              {/* Modal Top */}
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-700">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Campus Peer Review</span>
+                  </div>
+                  <h3 id="review-modal-title" className="mt-1 font-display text-xl font-bold text-[#0B1F3A]">
+                    Rate &amp; Review Order
+                  </h3>
+                  <p className="mt-1 text-xs text-slate-600 truncate max-w-[280px]">
+                    {reviewOrder.gigTitle}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReviewOrder(null)}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Star Rating Selector */}
+              <div className="mt-5 p-4 bg-amber-50/60 rounded-2xl border border-amber-200/60 flex flex-col items-center justify-center gap-2">
+                <span className="text-xs font-medium text-slate-600">Select Star Rating</span>
+                <div className="flex items-center gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => {
+                    const active = star <= (hoverRating || rating);
+                    return (
+                      <button
+                        key={star}
+                        type="button"
+                        onMouseEnter={() => setHoverRating(star)}
+                        onMouseLeave={() => setHoverRating(0)}
+                        onClick={() => setRating(star)}
+                        className="p-1 text-amber-400 hover:scale-125 transition-transform cursor-pointer focus:outline-none"
+                      >
+                        <Star className={`w-8 h-8 ${active ? 'fill-amber-400 text-amber-500' : 'text-slate-300'}`} />
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="font-mono-num font-bold text-sm text-amber-900">
+                  {rating === 5 && '★★★★★ 5.0 — Exceptional Work'}
+                  {rating === 4 && '★★★★☆ 4.0 — Very Good'}
+                  {rating === 3 && '★★★☆☆ 3.0 — Average Quality'}
+                  {rating === 2 && '★★☆☆☆ 2.0 — Needs Revision'}
+                  {rating === 1 && '★☆☆☆☆ 1.0 — Poor Experience'}
+                </div>
+              </div>
+
+              {/* Quick Tag Suggestions */}
+              <div className="mt-4">
+                <span className="text-[11px] font-semibold text-slate-600 block mb-1.5">Quick Feedback Tags</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {QUICK_TAGS.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => handleQuickTagClick(tag)}
+                      className="text-[11px] px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg text-slate-700 transition-colors cursor-pointer"
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Written Feedback Textarea */}
+              <div className="mt-4">
+                <label htmlFor="review-feedback" className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Your Written Review &amp; Experience
+                </label>
+                <textarea
+                  id="review-feedback"
+                  rows={3}
+                  value={feedback}
+                  onChange={(e) => setFeedback(e.target.value)}
+                  placeholder="Share details about code quality, communication, and speed for this student seller..."
+                  className="w-full px-3.5 py-2.5 text-xs glass-input rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0B1F3A]"
+                />
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="mt-5 space-y-2">
+                <button
+                  type="button"
+                  disabled={submittingReview}
+                  onClick={() => void handleSubmitReview()}
+                  className="w-full py-3 px-4 text-xs font-bold text-white bg-gradient-to-r from-[#0B1F3A] via-[#1E3A8A] to-blue-700 hover:opacity-95 rounded-xl transition-all cursor-pointer shadow-md hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
+                >
+                  {submittingReview ? 'Submitting Review...' : 'Submit Review & Release Escrow'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setReviewOrder(null)}
+                  className="w-full py-2 text-xs font-medium text-slate-500 hover:text-slate-800 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
