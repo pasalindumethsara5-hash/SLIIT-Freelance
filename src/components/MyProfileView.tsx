@@ -393,7 +393,7 @@ export function MyProfileView({
             onClick={onNavigateOrders}
             className="inline-flex items-center justify-center gap-1.5 w-full px-4 py-2.5 text-xs font-semibold text-[#0B1F3A] bg-white/85 border border-slate-200 hover:bg-white rounded-xl transition-colors cursor-pointer"
           >
-            View All Orders &amp; 25% Ledger
+            View Orders &amp; Founder Ledger
           </button>
         </section>
       </div>

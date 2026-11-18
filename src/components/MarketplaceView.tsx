@@ -232,7 +232,7 @@ export function MarketplaceView({
                   [
                     { id: 'all', label: 'All Services' },
                     { id: 'free', label: 'Free (LKR 0)' },
-                    { id: 'paid', label: 'Paid (25% Fee)' },
+                    { id: 'paid', label: 'Paid Services' },
                   ] as const
                 ).map((tier) => (
                   <button

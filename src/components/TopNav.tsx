@@ -16,7 +16,7 @@ const NAV_ITEMS: Array<{ id: ActiveTab; label: string }> = [
   { id: 'marketplace', label: 'Marketplace' },
   { id: 'kuppi', label: 'Kuppi & Study' },
   { id: 'sell', label: 'Sell & Free' },
-  { id: 'orders', label: 'Orders & 25%' },
+  { id: 'orders', label: 'Orders' },
   { id: 'ai', label: 'Campus AI' },
   { id: 'profile', label: 'My Profile' },
 ];
