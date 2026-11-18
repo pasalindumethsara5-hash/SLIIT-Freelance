@@ -1,3 +1,10 @@
+export const OFFICIAL_CAMPUS_BANK_DETAILS = {
+  bankName: "PEOPLE'S BANK",
+  accountName: 'Methsara K.A.P',
+  accountNumber: '118200250021370',
+  branch: 'Delgoda branch',
+} as const;
+
 export const CAMPUS_BRANCHES = [
   'Malabe',
   'Metro',
@@ -93,6 +100,7 @@ export interface Order {
   requirements: string;
   deliveryNote: string;
   status: OrderStatus;
+  receiptUrl?: string;
   rating?: number;
   feedback?: string;
   reviewedAtMs?: number;

@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock, MessageSquarePlus, PackageCheck, Sparkles, Star, X, XCircle } from 'lucide-react';
+import { CheckCircle2, Clock, ExternalLink, FileText, MessageSquarePlus, PackageCheck, Sparkles, Star, Trash2, X, XCircle } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
 import type { Order, OrderStatus, UserProfile } from '../types/marketplace';
@@ -75,6 +75,9 @@ export function OrdersView({
   const [hoverRating, setHoverRating] = useState<number>(0);
   const [feedback, setFeedback] = useState<string>('');
   const [submittingReview, setSubmittingReview] = useState(false);
+
+  // Bank Receipt Viewer State
+  const [viewingReceiptUrl, setViewingReceiptUrl] = useState<string | null>(null);
 
   const visibleOrders = orders.filter((o) => {
     if (!currentUser || scope === 'all') return true;
@@ -264,6 +267,21 @@ export function OrdersView({
                     </p>
                   )}
 
+                  {/* Bank Transfer Receipt */}
+                  {order.receiptUrl && (
+                    <div className="flex items-center gap-2 pt-1">
+                      <span className="text-[11px] font-semibold text-slate-500">Bank Slip:</span>
+                      <button
+                        type="button"
+                        onClick={() => setViewingReceiptUrl(order.receiptUrl!)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg cursor-pointer transition-colors"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        View Bank Slip
+                      </button>
+                    </div>
+                  )}
+
                   {/* Verified Review Display */}
                   {order.rating && (
                     <div className="p-3.5 bg-amber-50/70 border border-amber-200/80 rounded-2xl flex flex-col gap-1.5 shadow-2xs">
@@ -367,10 +385,15 @@ export function OrdersView({
                     <button
                       type="button"
                       disabled={busyId === order.id}
-                      onClick={() => void handleAction(order.id, 'cancelled')}
-                      className="w-full px-3.5 py-2 text-xs font-medium text-slate-700 bg-white/70 border border-slate-200 hover:bg-white rounded-xl transition-colors cursor-pointer"
+                      onClick={() => {
+                        if (window.confirm(`Are you sure you want to cancel and delete order ${order.id}?`)) {
+                          void handleAction(order.id, 'cancelled');
+                        }
+                      }}
+                      className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-red-700 bg-red-50/80 hover:bg-red-100 border border-red-200 rounded-xl transition-colors cursor-pointer"
                     >
-                      Cancel Order
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Cancel &amp; Delete Order
                     </button>
                   )}
                 </div>
@@ -500,6 +523,78 @@ export function OrdersView({
                   className="w-full py-2 text-xs font-medium text-slate-500 hover:text-slate-800 transition-colors"
                 >
                   Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+        {/* Bank Receipt Preview Modal */}
+        {viewingReceiptUrl && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="receipt-modal-title"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setViewingReceiptUrl(null);
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="glass-panel bg-white/95 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-blue-700" />
+                  <h3 id="receipt-modal-title" className="font-display text-sm font-bold text-slate-900">
+                    Verified Bank Transfer Slip
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setViewingReceiptUrl(null)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="max-h-[60vh] overflow-auto rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center p-2">
+                {viewingReceiptUrl.startsWith('data:image/') ? (
+                  <img
+                    src={viewingReceiptUrl}
+                    alt="Uploaded Bank Transfer Slip"
+                    className="max-w-full h-auto rounded-lg shadow-sm"
+                  />
+                ) : (
+                  <div className="p-8 text-center space-y-3">
+                    <FileText className="w-12 h-12 text-slate-400 mx-auto" />
+                    <p className="text-xs text-slate-600 font-medium">Bank transfer receipt PDF document</p>
+                    <a
+                      href={viewingReceiptUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-[#0B1F3A] rounded-xl hover:bg-slate-800 transition-colors"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Open Full Document
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setViewingReceiptUrl(null)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+                >
+                  Close Receipt
                 </button>
               </div>
             </motion.div>

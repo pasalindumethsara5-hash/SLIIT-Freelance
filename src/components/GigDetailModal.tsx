@@ -1,7 +1,24 @@
-import { ArrowUpRight, Check, HeartHandshake, Lock, ShieldCheck, X } from 'lucide-react';
+import {
+  ArrowUpRight,
+  Check,
+  Copy,
+  FileText,
+  HeartHandshake,
+  Landmark,
+  Lock,
+  ShieldCheck,
+  Trash2,
+  UploadCloud,
+  X,
+} from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { useState, type FormEvent } from 'react';
-import type { Gig, StudentProfileStats, UserProfile } from '../types/marketplace';
+import { useState, type ChangeEvent, type FormEvent } from 'react';
+import {
+  OFFICIAL_CAMPUS_BANK_DETAILS,
+  type Gig,
+  type StudentProfileStats,
+  type UserProfile,
+} from '../types/marketplace';
 import {
   calculateCommissionSplit,
   formatLkr,
@@ -17,7 +34,7 @@ interface GigDetailModalProps {
   onClose: () => void;
   onOpenProfile: (identity: StudentIdentitySeed) => void;
   onOpenGate: () => void;
-  onPlaceOrder: (gig: Gig, requirements: string) => Promise<void>;
+  onPlaceOrder: (gig: Gig, requirements: string, receiptUrl?: string) => Promise<void>;
 }
 
 export function GigDetailModal({
@@ -32,10 +49,43 @@ export function GigDetailModal({
   const [requirements, setRequirements] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [placing, setPlacing] = useState(false);
+  const [copiedBank, setCopiedBank] = useState(false);
+
+  // Bank receipt upload state
+  const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
+  const [receiptFileName, setReceiptFileName] = useState<string | null>(null);
 
   const isFree = gig ? gig.isFree || gig.priceLkr === 0 : false;
   const split = calculateCommissionSplit(gig && !isFree ? gig.priceLkr : 0);
   const isOwnGig = Boolean(gig && currentUser?.uid === gig.sellerId);
+
+  const handleReceiptUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Receipt file size must be less than 5MB.');
+      return;
+    }
+
+    setReceiptFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setReceiptUrl(reader.result);
+        setError(null);
+      }
+    };
+    reader.onerror = () => {
+      setError('Failed to read the receipt file. Please try again.');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleClearReceipt = () => {
+    setReceiptUrl(null);
+    setReceiptFileName(null);
+  };
 
   const handleCheckout = async (e: FormEvent) => {
     e.preventDefault();
@@ -58,10 +108,17 @@ export function GigDetailModal({
       return;
     }
 
+    if (!isFree && !receiptUrl) {
+      setError('Please transfer payment to the bank account and upload your payment receipt slip to continue.');
+      return;
+    }
+
     setPlacing(true);
     try {
-      await onPlaceOrder(gig, cleanRequirements);
+      await onPlaceOrder(gig, cleanRequirements, receiptUrl || undefined);
       setRequirements('');
+      setReceiptUrl(null);
+      setReceiptFileName(null);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to place order.');
@@ -253,6 +310,117 @@ export function GigDetailModal({
                 </div>
               )}
 
+              {/* Manual Bank Transfer & Receipt Upload for Paid Orders */}
+              {!isFree && (
+                <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-amber-950 uppercase tracking-wide">
+                      <Landmark className="w-3.5 h-3.5 text-amber-700" />
+                      <span>Official Campus Bank Transfer</span>
+                    </div>
+                    <span className="text-[10px] font-semibold bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded-md">
+                      Escrow Deposit
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-amber-900/90 leading-relaxed">
+                    Transfer <span className="font-bold font-mono-num">{formatLkr(split.grossAmountLkr)}</span> to the verified SLIIT platform account, then upload your slip:
+                  </p>
+
+                  <div className="bg-white/90 rounded-xl p-3 border border-amber-200/60 text-xs space-y-1.5 font-sans">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Bank:</span>
+                      <span className="font-semibold text-slate-800">{OFFICIAL_CAMPUS_BANK_DETAILS.bankName}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Account Name:</span>
+                      <span className="font-semibold text-slate-800">{OFFICIAL_CAMPUS_BANK_DETAILS.accountName}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Account Number:</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono-num font-bold text-slate-900 bg-amber-100/70 px-2 py-0.5 rounded text-xs">
+                          {OFFICIAL_CAMPUS_BANK_DETAILS.accountNumber}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(OFFICIAL_CAMPUS_BANK_DETAILS.accountNumber);
+                            setCopiedBank(true);
+                            setTimeout(() => setCopiedBank(false), 2000);
+                          }}
+                          className="p-1 hover:bg-slate-100 rounded text-slate-600 transition-colors"
+                          title="Copy Account Number"
+                        >
+                          {copiedBank ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Branch:</span>
+                      <span className="font-semibold text-slate-800">{OFFICIAL_CAMPUS_BANK_DETAILS.branch}</span>
+                    </div>
+                  </div>
+
+                  {/* Upload Receipt Section */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      Upload Bank Transfer Receipt Slip <span className="text-red-500">*</span>
+                    </label>
+
+                    {receiptUrl ? (
+                      <div className="p-3 bg-white/90 rounded-xl border border-emerald-200 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {receiptUrl.startsWith('data:image/') ? (
+                            <img
+                              src={receiptUrl}
+                              alt="Receipt preview"
+                              className="w-10 h-10 object-cover rounded-lg border border-slate-200 shrink-0"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-800 shrink-0">
+                              <FileText className="w-5 h-5" />
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-slate-800 truncate">
+                              {receiptFileName || 'payment_receipt.png'}
+                            </p>
+                            <p className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
+                              <Check className="w-3 h-3" /> Receipt attached
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleClearReceipt}
+                          className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                          title="Remove receipt"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-amber-300 hover:border-amber-400 rounded-xl bg-white/60 hover:bg-white/90 cursor-pointer transition-colors group">
+                        <UploadCloud className="w-6 h-6 text-amber-600 group-hover:scale-110 transition-transform mb-1" />
+                        <span className="text-xs font-semibold text-slate-700">
+                          Click to upload bank transfer slip
+                        </span>
+                        <span className="text-[10px] text-slate-500 mt-0.5">
+                          PNG, JPG, or PDF (Max 5MB)
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          onChange={handleReceiptUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label htmlFor="order-requirements" className="block text-xs font-semibold text-slate-700 mb-1.5">
                   {isFree ? 'What do you need help with?' : 'Project Brief & Requirements'}
@@ -284,7 +452,9 @@ export function GigDetailModal({
                     ? 'Creating Campus Request...'
                     : isFree
                     ? 'Request Free Peer Help (LKR 0)'
-                    : `Place Campus Order (${formatLkr(split.grossAmountLkr)})`}
+                    : receiptUrl
+                    ? `Upload Receipt & Place Escrow Order (${formatLkr(split.grossAmountLkr)})`
+                    : `Pay & Upload Receipt (${formatLkr(split.grossAmountLkr)})`}
                 </button>
               ) : (
                 <button

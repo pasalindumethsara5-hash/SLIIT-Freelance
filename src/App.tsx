@@ -20,6 +20,7 @@ import {
   createGigDoc,
   createKuppiSessionDoc,
   createOrderDoc,
+  deleteOrderDoc,
   fetchUserProfile,
   saveUserProfile,
   signInWithGoogleAccount,
@@ -336,7 +337,7 @@ export default function App() {
     );
   };
 
-  const handlePlaceOrder = async (gig: Gig, requirements: string) => {
+  const handlePlaceOrder = async (gig: Gig, requirements: string, receiptUrl?: string) => {
     if (!currentUser) {
       setGateOpen(true);
       return;
@@ -360,6 +361,7 @@ export default function App() {
       requirements,
       deliveryNote: '',
       status: 'in_progress',
+      receiptUrl: receiptUrl || '',
     };
 
     if (firebaseUser && firebaseProfile && !gig.id.startsWith('gig-sliit-')) {
@@ -389,6 +391,15 @@ export default function App() {
     reviewData?: { rating: number; feedback: string }
   ) => {
     const isCloud = cloudOrders.some((o) => o.id === orderId);
+
+    if (nextStatus === 'cancelled') {
+      if (firebaseUser && isCloud) {
+        await deleteOrderDoc(orderId);
+      }
+      setSandboxOrders((prev) => prev.filter((o) => o.id !== orderId));
+      showToast(`Order ${orderId} has been cancelled and permanently removed.`);
+      return;
+    }
     if (firebaseUser && isCloud) {
       await updateOrderStatusDoc(orderId, nextStatus, deliveryNote, reviewData);
     } else {

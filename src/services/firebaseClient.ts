@@ -4,6 +4,7 @@ import {
   arrayRemove,
   arrayUnion,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocFromServer,
@@ -374,9 +375,22 @@ function mapOrderDoc(d: { id: string; data: () => Record<string, any> }): Order 
     requirements: data.requirements ?? '',
     deliveryNote: data.deliveryNote ?? '',
     status: data.status as OrderStatus,
+    receiptUrl: data.receiptUrl ?? '',
+    rating: data.rating,
+    feedback: data.feedback,
+    reviewedAtMs: data.reviewedAt?.toMillis?.() ?? undefined,
     createdAtMs: data.createdAt?.toMillis?.() ?? Date.now(),
     updatedAtMs: data.updatedAt?.toMillis?.() ?? Date.now(),
   };
+}
+
+export async function deleteOrderDoc(orderId: string): Promise<void> {
+  const path = `orders/${orderId}`;
+  try {
+    await deleteDoc(doc(db, 'orders', orderId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
 }
 
 export async function createOrderDoc(order: Omit<Order, 'id' | 'createdAtMs' | 'updatedAtMs'>): Promise<string> {

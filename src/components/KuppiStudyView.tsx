@@ -1,8 +1,25 @@
-import { Award, BookOpen, Calendar, Check, Copy, MapPin, Plus, Search, Users } from 'lucide-react';
+import {
+  Award,
+  BookOpen,
+  Calendar,
+  Check,
+  Copy,
+  FileText,
+  Landmark,
+  Lock,
+  MapPin,
+  Plus,
+  Search,
+  Trash2,
+  UploadCloud,
+  Users,
+  X,
+} from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { useState, type FormEvent } from 'react';
+import { useState, type ChangeEvent, type FormEvent } from 'react';
 import {
   CAMPUS_BRANCHES,
+  OFFICIAL_CAMPUS_BANK_DETAILS,
   type AchievementBadge,
   type CampusBranch,
   type Gig,
@@ -84,6 +101,55 @@ export function KuppiStudyView({
   const [maxSeats, setMaxSeats] = useState<number>(20);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+
+  // Paid Kuppi Checkout Modal State
+  const [selectedPaidSession, setSelectedPaidSession] = useState<KuppiSession | null>(null);
+  const [kuppiReceiptUrl, setKuppiReceiptUrl] = useState<string | null>(null);
+  const [kuppiReceiptName, setKuppiReceiptName] = useState<string | null>(null);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [confirmingTicket, setConfirmingTicket] = useState(false);
+  const [copiedBankKuppi, setCopiedBankKuppi] = useState(false);
+
+  const handleKuppiReceiptUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setCheckoutError('Receipt file size must be less than 5MB.');
+      return;
+    }
+
+    setKuppiReceiptName(file.name);
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setKuppiReceiptUrl(reader.result);
+        setCheckoutError(null);
+      }
+    };
+    reader.onerror = () => {
+      setCheckoutError('Failed to read the receipt file. Please try again.');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleConfirmPaidTicket = async () => {
+    if (!selectedPaidSession) return;
+    if (!kuppiReceiptUrl) {
+      setCheckoutError('Please upload your bank transfer payment slip to verify and confirm your seat.');
+      return;
+    }
+    setConfirmingTicket(true);
+    try {
+      await onToggleJoin(selectedPaidSession.id);
+      setSelectedPaidSession(null);
+      setKuppiReceiptUrl(null);
+      setKuppiReceiptName(null);
+      setCheckoutError(null);
+    } finally {
+      setConfirmingTicket(false);
+    }
+  };
 
   const visibleSessions = filterKuppiSessions(sessions, {
     query,
@@ -575,6 +641,11 @@ export function KuppiStudyView({
                       <span>{session.mode}</span>
                     </div>
                     {hostBadge && <AchievementBadgeChip badge={hostBadge} variant="compact" />}
+                    {isJoined && !isFree && (
+                      <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded-md inline-flex items-center gap-1">
+                        <Check className="w-3 h-3 text-emerald-700" /> Ticket Active
+                      </span>
+                    )}
                   </div>
 
                   <h2 className="font-display text-lg font-bold text-slate-900 leading-snug">{session.title}</h2>
@@ -587,7 +658,18 @@ export function KuppiStudyView({
                     </div>
                     <div className="flex items-center gap-2">
                       <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                      <span className="truncate">{session.locationOrLink}</span>
+                      <span className="truncate">
+                        {isFree || isJoined ? (
+                          <span className={isJoined && !isFree ? 'font-semibold text-emerald-800' : ''}>
+                            {session.locationOrLink}
+                          </span>
+                        ) : (
+                          <span className="text-amber-700 font-medium inline-flex items-center gap-1">
+                            <Lock className="w-3 h-3" />
+                            Book seat &amp; verify slip to unlock link
+                          </span>
+                        )}
+                      </span>
                     </div>
                     <div className="flex items-center gap-2 min-w-0">
                       <BookOpen className="w-3.5 h-3.5 text-slate-500 shrink-0" />
@@ -640,10 +722,17 @@ export function KuppiStudyView({
 
                     <button
                       type="button"
-                      disabled={isFull}
+                      disabled={isFull && !isJoined}
                       onClick={() => {
                         if (!currentUser) {
                           onOpenGate();
+                          return;
+                        }
+                        if (session.priceLkr > 0 && !isJoined) {
+                          setSelectedPaidSession(session);
+                          setKuppiReceiptUrl(null);
+                          setKuppiReceiptName(null);
+                          setCheckoutError(null);
                           return;
                         }
                         void onToggleJoin(session.id);
@@ -651,10 +740,18 @@ export function KuppiStudyView({
                       className={`px-4 py-2 text-xs font-semibold rounded-xl transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-50 ${
                         isJoined
                           ? 'bg-emerald-700 text-white hover:bg-emerald-800'
+                          : session.priceLkr > 0
+                          ? 'bg-[#0B1F3A] text-white hover:bg-slate-800 shadow-sm'
                           : 'bg-[#0B1F3A] text-white hover:bg-slate-800'
                       }`}
                     >
-                      {isJoined ? 'Joined · Leave Seat' : isFull ? 'Session Full' : 'Join Session'}
+                      {isJoined
+                        ? 'Joined · Leave Seat'
+                        : isFull
+                        ? 'Session Full'
+                        : session.priceLkr > 0
+                        ? `Book Seat · ${formatLkr(session.priceLkr)}`
+                        : 'Join Free Session'}
                     </button>
                   </div>
                 </div>
@@ -670,6 +767,211 @@ export function KuppiStudyView({
           </p>
         </div>
       )}
+
+      {/* Paid Kuppi Ticket Booking & Bank Slip Upload Modal */}
+      <AnimatePresence>
+        {selectedPaidSession && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="kuppi-checkout-title"
+            onClick={(e) => {
+              if (e.target === e.currentTarget && !confirmingTicket) setSelectedPaidSession(null);
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 12 }}
+              className="glass-panel bg-white/95 rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-[#0B1F3A] text-white flex items-center justify-center">
+                    <BookOpen className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 id="kuppi-checkout-title" className="font-display text-sm font-bold text-slate-900">
+                      Book Kuppi Masterclass Ticket
+                    </h3>
+                    <p className="text-[11px] text-slate-500">{selectedPaidSession.moduleCode} · {selectedPaidSession.title}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={confirmingTicket}
+                  onClick={() => setSelectedPaidSession(null)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Price & Split Info */}
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-600">Ticket Price:</span>
+                  <span className="font-mono-num text-lg font-bold text-slate-900">
+                    {formatLkr(selectedPaidSession.priceLkr)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-200/60">
+                  <span>Host Tutor (75%): {formatLkr(calculateCommissionSplit(selectedPaidSession.priceLkr).sellerPayoutLkr)}</span>
+                  <span>Platform Escrow (25%): {formatLkr(calculateCommissionSplit(selectedPaidSession.priceLkr).platformFeeLkr)}</span>
+                </div>
+              </div>
+
+              {/* Bank Details */}
+              <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-amber-950 uppercase tracking-wide">
+                    <Landmark className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Campus Escrow Bank Details</span>
+                  </div>
+                  <span className="text-[10px] font-semibold bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded-md">
+                    Verified
+                  </span>
+                </div>
+
+                <p className="text-[11px] text-amber-900 leading-relaxed">
+                  Transfer <span className="font-bold font-mono-num">{formatLkr(selectedPaidSession.priceLkr)}</span> via online banking or CDM, then upload your transfer slip:
+                </p>
+
+                <div className="bg-white/95 rounded-xl p-3 border border-amber-200/60 text-xs space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Bank:</span>
+                    <span className="font-semibold text-slate-800">{OFFICIAL_CAMPUS_BANK_DETAILS.bankName}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Account Name:</span>
+                    <span className="font-semibold text-slate-800">{OFFICIAL_CAMPUS_BANK_DETAILS.accountName}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Account Number:</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono-num font-bold text-slate-900 bg-amber-100/70 px-2 py-0.5 rounded text-xs">
+                        {OFFICIAL_CAMPUS_BANK_DETAILS.accountNumber}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(OFFICIAL_CAMPUS_BANK_DETAILS.accountNumber);
+                          setCopiedBankKuppi(true);
+                          setTimeout(() => setCopiedBankKuppi(false), 2000);
+                        }}
+                        className="p-1 hover:bg-slate-100 rounded text-slate-600 transition-colors"
+                        title="Copy Account Number"
+                      >
+                        {copiedBankKuppi ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Branch:</span>
+                    <span className="font-semibold text-slate-800">{OFFICIAL_CAMPUS_BANK_DETAILS.branch}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Upload Receipt */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Upload Bank Transfer Receipt Slip <span className="text-red-500">*</span>
+                </label>
+
+                {kuppiReceiptUrl ? (
+                  <div className="p-3 bg-white rounded-xl border border-emerald-200 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {kuppiReceiptUrl.startsWith('data:image/') ? (
+                        <img
+                          src={kuppiReceiptUrl}
+                          alt="Receipt slip"
+                          className="w-10 h-10 object-cover rounded-lg border border-slate-200 shrink-0"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-800 shrink-0">
+                          <FileText className="w-5 h-5" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-slate-800 truncate">
+                          {kuppiReceiptName || 'payment_slip.png'}
+                        </p>
+                        <p className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
+                          <Check className="w-3 h-3" /> Slip attached &amp; ready
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setKuppiReceiptUrl(null);
+                        setKuppiReceiptName(null);
+                      }}
+                      className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                      title="Remove receipt"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-amber-300 hover:border-amber-400 rounded-xl bg-white hover:bg-slate-50 cursor-pointer transition-colors group">
+                    <UploadCloud className="w-6 h-6 text-amber-600 group-hover:scale-110 transition-transform mb-1" />
+                    <span className="text-xs font-semibold text-slate-700">
+                      Click to upload bank transfer slip
+                    </span>
+                    <span className="text-[10px] text-slate-500 mt-0.5">
+                      PNG, JPG, or PDF (Max 5MB)
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={handleKuppiReceiptUpload}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
+
+              {checkoutError && (
+                <div role="alert" className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs font-medium text-red-700">
+                  {checkoutError}
+                </div>
+              )}
+
+              {/* Confirm / Cancel Buttons */}
+              <div className="pt-2 space-y-2">
+                <button
+                  type="button"
+                  disabled={confirmingTicket}
+                  onClick={() => void handleConfirmPaidTicket()}
+                  className="w-full py-3 px-4 text-xs font-bold text-white bg-[#0B1F3A] hover:bg-slate-800 rounded-xl transition-all cursor-pointer shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <Lock className="w-3.5 h-3.5 text-amber-400" />
+                  {confirmingTicket
+                    ? 'Verifying & Reserving Seat...'
+                    : kuppiReceiptUrl
+                    ? `Upload Receipt & Confirm Ticket (${formatLkr(selectedPaidSession.priceLkr)})`
+                    : `Pay & Upload Receipt (${formatLkr(selectedPaidSession.priceLkr)})`}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={confirmingTicket}
+                  onClick={() => setSelectedPaidSession(null)}
+                  className="w-full py-2 text-xs font-medium text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
