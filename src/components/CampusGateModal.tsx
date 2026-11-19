@@ -1,4 +1,4 @@
-import { ArrowLeft, Award, CheckCircle2, KeyRound, Lock, Mail, RefreshCw, ShieldCheck, X } from 'lucide-react';
+import { ArrowLeft, Award, CheckCircle2, KeyRound, Lock, LogOut, Mail, RefreshCw, ShieldCheck, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState, type FormEvent } from 'react';
 import {
@@ -238,6 +238,38 @@ export function CampusGateModal({
                 </button>
               )}
             </div>
+
+            {/* Active Account Banner & Log Out */}
+            {currentUser && (
+              <div className="mt-4 p-4 rounded-2xl bg-gradient-to-r from-[#0B1F3A] to-slate-800 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md border border-slate-700/60">
+                <div className="space-y-0.5 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="text-[11px] font-semibold text-emerald-300 uppercase tracking-wide">
+                      Signed In Student Session
+                    </span>
+                  </div>
+                  <div className="text-sm font-bold text-white truncate">
+                    {currentUser.displayName} <span className="text-slate-300 font-mono text-xs">({currentUser.sliitStudentId})</span>
+                  </div>
+                  <div className="text-xs text-slate-300">
+                    {currentUser.campus} Campus · {currentUser.faculty}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await onSignOut();
+                    onClose();
+                  }}
+                  className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold text-red-200 bg-red-950/70 hover:bg-red-900/90 border border-red-700/60 rounded-xl transition-all cursor-pointer whitespace-nowrap shadow-xs hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <LogOut className="w-3.5 h-3.5 text-red-400" />
+                  Log Out
+                </button>
+              </div>
+            )}
 
             {/* Badges for Existing User */}
             {currentUser && profileStats && (

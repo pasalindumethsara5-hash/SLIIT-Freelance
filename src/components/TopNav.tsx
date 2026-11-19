@@ -1,4 +1,4 @@
-import { Menu, X } from 'lucide-react';
+import { LogOut, Menu, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
 import type { UserProfile } from '../types/marketplace';
@@ -10,6 +10,7 @@ interface TopNavProps {
   onSelectTab: (tab: ActiveTab) => void;
   currentUser: UserProfile | null;
   onOpenGate: () => void;
+  onSignOut?: () => Promise<void>;
 }
 
 const NAV_ITEMS: Array<{ id: ActiveTab; label: string }> = [
@@ -21,7 +22,7 @@ const NAV_ITEMS: Array<{ id: ActiveTab; label: string }> = [
   { id: 'profile', label: 'My Profile' },
 ];
 
-export function TopNav({ activeTab, onSelectTab, currentUser, onOpenGate }: TopNavProps) {
+export function TopNav({ activeTab, onSelectTab, currentUser, onOpenGate, onSignOut }: TopNavProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleNavClick = (tab: ActiveTab) => {
@@ -81,7 +82,7 @@ export function TopNav({ activeTab, onSelectTab, currentUser, onOpenGate }: TopN
           </nav>
 
           {/* Zone 3: 1 Primary Action + Mobile Drawer Toggle */}
-          <div className="flex items-center gap-2.5 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             <motion.button
               type="button"
               whileHover={{ scale: 1.02 }}
@@ -91,6 +92,20 @@ export function TopNav({ activeTab, onSelectTab, currentUser, onOpenGate }: TopN
             >
               {currentUser ? `${currentUser.displayName.split(' ')[0]} · ${currentUser.sliitStudentId}` : 'Verify SLIIT Access'}
             </motion.button>
+
+            {currentUser && onSignOut && (
+              <motion.button
+                type="button"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => void onSignOut()}
+                title="Log out of account"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2.5 text-xs font-semibold rounded-xl text-red-700 bg-red-50 hover:bg-red-100 border border-red-200/80 shadow-xs cursor-pointer transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Log Out</span>
+              </motion.button>
+            )}
 
             <button
               type="button"
@@ -137,10 +152,24 @@ export function TopNav({ activeTab, onSelectTab, currentUser, onOpenGate }: TopN
                   setMobileOpen(false);
                   onOpenGate();
                 }}
-                className="w-full mt-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-[#0B1F3A] text-white text-center shadow-xs"
+                className="w-full mt-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-[#0B1F3A] text-white text-center shadow-xs cursor-pointer"
               >
                 {currentUser ? `${currentUser.displayName} (${currentUser.sliitStudentId})` : 'Verify SLIIT Access'}
               </button>
+
+              {currentUser && onSignOut && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileOpen(false);
+                    void onSignOut();
+                  }}
+                  className="w-full mt-1.5 px-4 py-2.5 text-sm font-semibold rounded-xl bg-red-50 text-red-700 border border-red-200 text-center flex items-center justify-center gap-1.5 cursor-pointer hover:bg-red-100 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Log Out ({currentUser.sliitStudentId})
+                </button>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

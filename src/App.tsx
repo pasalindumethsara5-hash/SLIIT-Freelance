@@ -248,6 +248,11 @@ export default function App() {
     await signOutFirebase();
     setFirebaseProfile(null);
     setSandboxUser(null);
+    try {
+      localStorage.removeItem(STORAGE_SANDBOX_USER);
+    } catch {
+      // ignore
+    }
     showToast('Signed out of SLIIT Freelance Hub.');
   };
 
@@ -506,6 +511,7 @@ export default function App() {
             onSelectTab={selectTab}
             currentUser={currentUser}
             onOpenGate={() => setGateOpen(true)}
+            onSignOut={handleSignOut}
           />
 
           <AnimatePresence>
@@ -673,6 +679,7 @@ export default function App() {
                       }
                       selectTab('marketplace');
                     }}
+                    onSignOut={handleSignOut}
                   />
                 )}
               </motion.div>

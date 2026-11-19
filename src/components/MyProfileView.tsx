@@ -4,6 +4,7 @@ import {
   BookOpen,
   Briefcase,
   Calendar,
+  LogOut,
   MapPin,
   PlusCircle,
   ShieldCheck,
@@ -26,6 +27,7 @@ interface MyProfileViewProps {
   onNavigateKuppi: () => void;
   onNavigateOrders: () => void;
   onExploreMyCampus: () => void;
+  onSignOut?: () => Promise<void>;
 }
 
 function getInitials(name: string): string {
@@ -47,6 +49,7 @@ export function MyProfileView({
   onNavigateKuppi,
   onNavigateOrders,
   onExploreMyCampus,
+  onSignOut,
 }: MyProfileViewProps) {
   if (!currentUser) {
     return (
@@ -182,6 +185,18 @@ export function MyProfileView({
               <ShieldCheck className="w-3.5 h-3.5" />
               Switch / Manage Access
             </motion.button>
+            {onSignOut && (
+              <motion.button
+                type="button"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => void onSignOut()}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100/90 border border-red-200 rounded-xl shadow-xs whitespace-nowrap cursor-pointer transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                Log Out
+              </motion.button>
+            )}
           </div>
         </div>
 
