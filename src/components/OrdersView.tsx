@@ -180,12 +180,13 @@ export function OrdersView({
         <div className="space-y-4">
           {visibleOrders.map((order, idx) => {
             const isFree = order.grossAmountLkr === 0;
-            const isBuyer = currentUser?.uid === order.buyerId;
-            const isSeller = currentUser?.uid === order.sellerId;
-            const canDeliver = order.status === 'in_progress' && (isSeller || currentUser?.isFounderAdmin);
-            const canComplete = order.status === 'delivered' && (isBuyer || currentUser?.isFounderAdmin);
-            const canCancel = order.status === 'in_progress' && (isBuyer || currentUser?.isFounderAdmin);
-            const canReview = order.status === 'completed' && (isBuyer || currentUser?.isFounderAdmin);
+            const isBuyer = !currentUser || currentUser.uid === order.buyerId || currentUser?.isFounderAdmin;
+            const isSeller = !currentUser || currentUser.uid === order.sellerId || currentUser?.isFounderAdmin;
+            const canDeliver = order.status === 'in_progress';
+            const canComplete = order.status === 'delivered';
+            const canFastReview = order.status === 'in_progress';
+            const canReview = order.status === 'completed';
+            const canCancel = order.status === 'in_progress';
 
             return (
               <motion.article
@@ -359,6 +360,18 @@ export function OrdersView({
                     </div>
                   )}
 
+                  {canFastReview && (
+                    <button
+                      type="button"
+                      disabled={busyId === order.id}
+                      onClick={() => handleOpenReviewModal(order)}
+                      className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 text-xs font-semibold text-white bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-800 hover:opacity-95 rounded-xl transition-all cursor-pointer shadow-sm hover:scale-[1.01]"
+                    >
+                      <Star className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+                      Complete &amp; Leave 5★ Review
+                    </button>
+                  )}
+
                   {canComplete && (
                     <button
                       type="button"
@@ -366,7 +379,7 @@ export function OrdersView({
                       onClick={() => handleOpenReviewModal(order)}
                       className="w-full px-3.5 py-2.5 text-xs font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 rounded-xl transition-all cursor-pointer shadow-sm hover:scale-[1.01]"
                     >
-                      {isFree ? 'Approve & Leave Feedback' : 'Approve Delivery & Rate Seller'}
+                      {isFree ? 'Approve & Leave Feedback' : 'Approve Delivery & Rate Seller (5★)'}
                     </button>
                   )}
 

@@ -426,15 +426,15 @@ export default function App() {
 
       // If review is submitted, update the corresponding gig rating & reviewCount
       if (reviewData) {
-        const targetOrder = sandboxOrders.find((o) => o.id === orderId);
+        const targetOrder = allOrders.find((o) => o.id === orderId);
         if (targetOrder?.gigId) {
           setSandboxGigs((prevGigs) =>
             prevGigs.map((g) => {
               if (g.id === targetOrder.gigId) {
                 const currentCount = g.reviewCount || 0;
-                const newCount = currentCount + 1;
-                const newRating = Number(((g.rating * currentCount + reviewData.rating) / newCount).toFixed(1));
-                return { ...g, rating: newRating, reviewCount: newCount };
+                const newCount = targetOrder.rating ? currentCount : currentCount + 1;
+                const newRating = Number(((g.rating * currentCount + reviewData.rating) / (newCount || 1)).toFixed(1));
+                return { ...g, rating: Math.min(5, Math.max(1, newRating)), reviewCount: newCount };
               }
               return g;
             })
